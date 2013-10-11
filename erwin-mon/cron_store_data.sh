@@ -4,7 +4,7 @@
 # CREATE TABLE 'system_status' ( time INTEGER primary key, temperature REAL, voltage REAL )
 
 #Settings
-. /home/pi/code/erwin_mon/prod/config.sh
+. /home/pi/code/erwin-tools/erwin-mon/prod/config.sh
 
 #Retrieve data
 myTIME=`/bin/date +%s`

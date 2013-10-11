@@ -2,7 +2,7 @@
 # Retrieve data from database and display with gnuplot
 
 #Settings
-. /home/pi/code/erwin_mon/prod/config.sh
+. /home/pi/code/erwin-tools/erwin-mon/prod/config.sh
 
 #Local settings
 tmpFile=/tmp/tmpDataErwinMon.txt
