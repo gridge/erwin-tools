@@ -1,0 +1,97 @@
+- if we sum on splits.value_num / splits.value_denom we make rounding errors. So
+we assume a 100 denom and sum up everything and divide by 100 the result.
+Note: we could at least assume just same denom for all account and retrieve one to find it.
+
+
+Flow:
+ - initialize list of accounts
+ - :indent :=0
+ - {Estimate balance} of 'Root Account' for a given type (e.g. All, Expenses, Income, ...)   
+   - Get balance for requested period
+     - if placeholder, return 0
+     - get cummodity for this account
+     - get exchange rate, if not main currency (USD)
+     - calculate balance in commodity
+     - calculate balance in main currency   
+   - Get list of sub-accounts of the given type 
+   - For each sub-account call {Estimate balance} function recursively with :indent+1
+   - Add account to global list of accounts with appropriate :indent (if :indent < :maxIndent)
+   - Add each sub-account result to the account (if request or if :indent >= :maxIndent)
+
+
+1) Get Balance for all accounts of a given type and within a given date
+===
+Select
+  accounts.name,
+  accounts.account_type,
+  Sum(Cast(splits.value_num As Real) / splits.value_denom)
+From
+  splits Inner Join
+  accounts On accounts.guid = splits.account_guid Inner Join
+  transactions On splits.tx_guid = transactions.guid
+Where
+  accounts.account_type In ('EXPENSE', 'INCOME') And
+  transactions.post_date >= '20160501000000' And
+  transactions.post_date <= '20160531000000' And
+  accounts.hidden = 0
+Group By
+  accounts.name, accounts.account_type
+===
+
+2) As in 1, but grouping by account type
+===
+Select
+  accounts.account_type,
+  Sum(Cast(splits.value_num As Real) / splits.value_denom)
+From
+  splits Inner Join
+  accounts On accounts.guid = splits.account_guid Inner Join
+  transactions On splits.tx_guid = transactions.guid
+Where
+  transactions.post_date >= '20160501000000' And
+  transactions.post_date <= '20160531000000'   
+Group By
+  accounts.account_type
+Having
+  accounts.account_type Not In ('EXPENSE', 'INCOME')
+Order By
+  accounts.account_type
+===
+
+3) Get all accounts children of a given account:
+===
+Select
+  accounts.name
+From
+  accounts
+Where
+  parent_guid = (Select accounts.guid From accounts 
+  	      	 Where accounts.name = 'Expenses') And
+  hidden = 0
+===
+#Note: the main account is 'Root Account'
+
+4) Get commodity value for a given account
+===
+Select 
+   accounts.name,commodities.mnemonic 
+From 
+   accounts,commodities 
+Where 
+   accounts.commodity_guid=commodities.guid 
+Order by 
+   accounts.name
+===
+
+5) Find most recent exchange price for a given commodity (e.g. EUR)
+===
+Select 
+  value_num,value_denom 
+From 
+  prices 
+Where 
+  commodity_guid = (Select guid From commodities 
+  		    Where mnemonic='EUR') 
+Order By 
+  date DESC
+===

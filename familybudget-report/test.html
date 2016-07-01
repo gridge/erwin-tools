@@ -1,0 +1,26 @@
+<html>
+  <head>
+    <!--General info-->
+    <meta charset="utf-8">
+    <title>Report -- Family Budget</title>
+    <link rel="stylesheet" media="screen" href="familybudget.css" >
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+    <!--Load the AJAX API-->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+    <script type="text/javascript">
+
+      $(function() {
+        $( "#datepicker_start" ).datepicker({dateFormat: 'yy/mm/dd'}); 
+      });
+
+    </script>
+  </head>
+
+  <body>
+      From: <input type="text" id="datepicker_start" size=12 required/> 
+    
+  </body>
+</html>
+

@@ -1,0 +1,554 @@
+<!-- 
+General TODO list:
+-->
+<html>
+  <head>
+    <!--General info-->
+    <meta charset="utf-8">
+    <title>Report -- Family Budget</title>
+    <link rel="stylesheet" media="screen" href="familybudget.css" >
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+    <!--Load the AJAX API-->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+
+<!-- JS for PHP data query and chart rendering -->
+    <script type="text/javascript">
+    
+    // Load the Visualization API and the piechart package.
+    google.charts.load('current', {'packages':['corechart', 'table', 'controls']});
+
+    //note: callback for loading will be set later, when other fields are ready as well    
+
+    //Utility function to load DataTable from php response
+    function loadDataTable(json_php, existingTable=null) {
+      //Get data
+      console.log('Output from PHP:');
+      console.log(json_php);
+      //var data_php = new google.visualization.arrayToDataTable(json_php, true);
+      var data_php = new google.visualization.DataTable();
+      data_php.addColumn('string', 'Account');
+      data_php.addColumn('string', 'Type');
+      data_php.addColumn('number', 'Balance');
+      data_php.addColumn('number', 'Indent');
+      data_php.addColumn('string', 'Date');
+      data_php.addRows(json_php);
+
+      //Format data
+      var currency_formatter = new google.visualization.NumberFormat(
+         {prefix: '$', negativeColor: 'red', negativeParens: true});
+      currency_formatter.format(data_php, 2);      
+
+      if (existingTable != null) {
+        data_php = google.visualization.data.join(existingTable, data_php, 'Full', [[0,0],[1,1],[2,2],[3,3],[4,4]]);
+        console.log('After joining');
+        console.log(data_php);
+      } 
+
+      return data_php;
+    }
+
+    //Format data table cells according to indent and type
+    function formatDataTable(dataTable, useIndent=true) {
+      console.log('formatting data table');
+      var nRows = dataTable.getNumberOfRows();
+      for (row = 0; row < nRows; row++) {
+        //if indent(column 3)<=1, make account name (column 0) bold
+        indent = dataTable.getValue(row, 3);
+        if (indent <= 1) {
+          dataTable.setProperty(row,0,'className', 'sty_indentZeroAccounts');
+          dataTable.setProperty(row,2,'className', 'sty_indentZeroAccounts');
+        } else if (useIndent) {
+          //indent for visualization based on indent(column 3)
+          var curVal = dataTable.getValue(row,0);
+          for (i=1; i < indent; i++) {            
+            //curVal = "&ndash;"+curVal;
+            curVal = "&nbsp;"+curVal;
+          }
+          //curVal = "&nbsp;"+curVal;
+          dataTable.setValue(row, 0, curVal);
+        }
+      }
+    }
+
+      
+    //Main callback for displaying data selected by date range 
+    // expects already validated input dates.
+    function drawChartsByDate() {
+      var in_startDate = $( '#datepicker_start' ).val();
+      var in_endDate = $( '#datepicker_end' ).val();
+      if (in_startDate == '' || in_endDate == '') return;
+
+      console.log('Draw income/expenses for period: ' + in_startDate + ' -- ' + in_endDate);
+
+      //change title
+      $( '#l_date_range' ).text(in_startDate + ' -- ' + in_endDate);
+
+      //Income/Expenses for normal accounts
+      $.ajax({
+          url: "familybudget.php",
+          dataType: "json",
+          async: true,
+          data: {startDate: in_startDate,
+                 endDate: in_endDate,
+                 reportType: 'ProfitLossNoBT',
+                 mainCurrency: 'USD',
+                 sumBalanceToParent: 1,
+                 suppressZeroBalance: 1},
+          type: 'post',
+          success: function(json_pl) {
+            console.log('Loaded data for table of income/expenses');
+            var data_pl = loadDataTable(json_pl);
+
+            //format data table
+            formatDataTable(data_pl);
+
+            //filter columns to view
+            var view_pl = new google.visualization.DataView(data_pl);
+            view_pl.setColumns([0, 2]);
+
+            //format data
+
+            //draw table
+            var table_pl = new google.visualization.Table(document.getElementById('table_pl_div'));
+            table_pl.draw(view_pl, {title: "Income and Expenses", allowHtml: true});
+          },
+          error: function (e) {
+            console.log("Error loading Table-ProfitLoss data: "+e.responseText);
+	    alert("Error loading data: "+e.responseText);
+            console.log(e);
+          }
+      }); //end ajax call
+
+      //Chart of expenses
+      $.ajax({
+          url: "familybudget.php",
+          dataType: "json",
+          async: true,
+          data: {startDate: in_startDate,
+                 endDate: in_endDate,
+                 reportType: 'ExpensesNoBT',
+                 mainCurrency: 'USD',
+                 sumBalanceToParent: 0,
+                 suppressZeroBalance: 1},
+          type: 'post',
+          success: function(json_expenses) {
+            console.log('Loaded data for chart of expenses');
+            var data_expenses = loadDataTable(json_expenses);
+
+            var view_expenses = new google.visualization.DataView(data_expenses);
+            view_expenses.setColumns([0, 2]);
+
+            var pie_pl_expenses = new google.visualization.PieChart(document.getElementById('pie_expenses_div'));
+            pie_pl_expenses.draw(view_expenses, {title: "Expenses", is3D: true, sliceVisibilityThreshold: 0.05,
+                        'legend.textStyle': {fontSize: 20}, pieSliceTextStyle: {fontSize: 15}, titleTextStyle: {fontSize: 20}});
+          },
+          error: function (e) {
+            console.log("Error loading Expenses data: "+e.responseText);
+	    alert("Error loading data: "+e.responseText);
+            console.log(e);
+          }
+      }); //end ajax call
+
+    } //drawChartsByDate
+
+
+    //Main initial callback for displaying data selected by year range and general statistics
+    function drawChartsGeneral() {
+      var in_year = $( "#yearpicker" ).val();
+      var in_startDate = in_year + '/01/01';
+      var in_endDate = in_year + '/12/31';
+
+      console.log('Draw general charts for period: ' + in_startDate + ' -- ' + in_endDate);
+
+      //change title
+      $( '#l_year_summary' ).text(in_year.toString());
+    
+      //create control selector
+      var dashboard_history = new google.visualization.Dashboard(
+        document.getElementById('dashboard_history_div'));
+
+      //list of accounts and special-interest quantities (Balance, Equity)
+      var list_accounts = new google.visualization.ControlWrapper({
+        'controlType': 'CategoryFilter',
+        'containerId': 'history_accounts_div',
+        'options': {
+          'filterColumnIndex': 0,
+          'ui': {
+            'allowTyping': false,
+            'allowMultiple': true,
+            'selectedValuesLayout': 'belowStacked',
+            'useFormattedValue' : true
+          }
+        },
+        'state': {'selectedValues': ['Balance']}
+      });
+
+      //create table
+      var table_history = new google.visualization.ChartWrapper({
+        'chartType': 'Table',
+        'containerId': 'history_table_div',
+        'options': {title: 'History detail',
+                    allowHtml: true,
+                    sortColumn: 2,
+                    sortAscending: false}
+      });
+
+      //create line graph
+      var lines_history = new google.visualization.ChartWrapper({
+        'chartType': 'LineChart',
+        'containerId': 'history_lines_div',
+        'options': {title: 'Accounts History', titleTextStyle: {fontSize: 20}, explorer:{}, pointSize:5}
+      });
+
+      //bind them together 
+      // Note: can't bind directly lines_history since it requires a different format
+      dashboard_history.bind([list_accounts], [table_history]);
+      google.visualization.events.addListener(dashboard_history, 'ready', drawLinesHistory);
+
+      //variable for storing DataView to be visualized
+      var view_history;
+
+      //now need to populate the data table
+      $.ajax({
+          url: "familybudget.php",
+          dataType: "json",
+          async: true,
+          data: {startDate: in_startDate,
+                 endDate: in_endDate,
+                 reportType: 'HistoryMonth',
+                 mainCurrency: 'USD',
+                 sumBalanceToParent: true,
+                 suppressZeroBalance: true},
+          type: 'post',
+          success: function(json) {
+            console.log('Loaded data for general dashboard');
+            var data_history = loadDataTable(json);
+            //formatDataTable(data_history, false); //format but do not indent
+
+            //filter columns to view
+            view_history = new google.visualization.DataView(data_history);
+            view_history.setColumns([0, 2, 4]);
+            
+            //draw table (will trigger a drawLinesHistory too)
+            dashboard_history.draw(view_history);
+          },
+          error: function (e) {
+            console.log("Error loading General-Stat data: "+e.responseText);
+	    alert("Error loading data: "+e.responseText);
+            console.log(e);
+          }
+      }); //end ajax call
+
+      //load Business trips table
+      $.ajax({
+          url: "familybudget.php",
+          dataType: "json",
+          async: true,
+          data: {startDate: in_startDate,
+                 endDate: in_endDate,
+                 reportType: 'BusinessTrips',
+                 mainCurrency: 'USD',
+                 sumBalanceToParent: 1,
+                 suppressZeroBalance: 0},
+          type: 'post',
+          success: function(json_bt) {
+            console.log('Loaded data for report BusinessTrips');
+            var data_bt = loadDataTable(json_bt);
+
+            //format data table
+            formatDataTable(data_bt);
+
+            //filter columns to view
+            var view_bt = new google.visualization.DataView(data_bt);
+            view_bt.setColumns([0, 2]);
+
+            //draw table
+            var table_bt = new google.visualization.Table(document.getElementById('table_business_trips_div'));
+            table_bt.draw(view_bt, {title: "Business Trips", allowHtml: true});
+          },
+          error: function (e) {
+            console.log("Error loading Business-Trips data: "+e.responseText);
+	    alert("Error loading data: "+e.responseText);
+            console.log(e);
+          }
+      }); //end ajax call
+
+      function drawLinesHistory() {
+        //re-organize view_history DataTable to be used by line chart to be date and balances only:
+        // Date, Account1, Account2, ...
+        // and draw the lines history chart
+        console.log('Draw History Lines chart');
+  
+        //get the list of selected accounts
+        var selectedAccounts = list_accounts.getState().selectedValues;
+        var history_lines_dataTable = new google.visualization.DataTable();
+        history_lines_dataTable.addColumn('string', 'Date');
+        for (i = 0; i < selectedAccounts.length; i++) {
+          history_lines_dataTable.addColumn('number', selectedAccounts[i].toString());
+        }
+
+        //fill DataView with default values and list of unique dates we need
+        listDates = view_history.getDistinctValues(2);
+	for (row = 0; row < listDates.length; row++) {
+	  var rowToAdd = [];
+	  rowToAdd.push(listDates[row]);
+	  for (i=0; i<selectedAccounts.length;i++) {
+            rowToAdd.push(0.0); //default: 0.0
+          }
+          history_lines_dataTable.addRow(rowToAdd);
+        }
+        
+        //now loop over DataView and fill DataTable
+        var nRows = view_history.getNumberOfRows();
+        for (row = 0; row < nRows; row++) {
+	  strDate = view_history.getValue(row, 2);
+          balance = view_history.getValue(row, 1);
+          strAccount = view_history.getValue(row, 0);
+          //find the index row in the DataTable
+          var indexRowForDate=-1;
+          for (i = 0; i < history_lines_dataTable.getNumberOfRows(); i++) {
+            if (history_lines_dataTable.getValue(i, 0) == strDate) {
+	      indexRowForDate=i;
+	      break;
+            }
+          }
+	  //find the index column in the DataTable
+          var indexColForAccount=-1;
+          for (i=0; i < history_lines_dataTable.getNumberOfColumns(); i++) {
+	    if (history_lines_dataTable.getColumnLabel(i) == strAccount) {
+              indexColForAccount=i;
+              break;
+            }
+          }
+          //fill the values
+          if (indexRowForDate >= 0 && indexColForAccount >= 0) {
+            history_lines_dataTable.setValue(indexRowForDate, indexColForAccount, balance);
+          }
+        } //loop over input DataView
+
+        //finally draw lines chart
+        lines_history.setDataTable(history_lines_dataTable);
+        lines_history.draw();
+
+        console.log('End drawing History Lines chart');
+                   
+      } //drawLinesHistory 
+    
+    } // drawChartsGeneral
+
+    //do actual drawing for drawChartsGeneral
+    function redrawHistoryCharts() {
+    };
+
+
+    </script>
+
+<!-- JS for dynamic actions -->
+    <script>      
+      //Utility for "loading" indicator
+      //http://w3lessons.info/2014/01/26/showing-busy-loading-indicator-during-an-ajax-request-using-jquery/
+      function ajaxindicatorstart(text) {
+        if(jQuery('body').find('#resultLoading').attr('id') != 'resultLoading'){
+          jQuery('body').append('<div id="resultLoading" style="display:none"><div><img src="loading_infty.gif"><div>'+text+'</div></div><div class="bg"></div></div>');
+        }
+  
+        jQuery('#resultLoading').css({
+          'width':'100%',
+          'height':'100%',
+          'position':'fixed',
+          'z-index':'10000000',
+          'top':'0',
+          'left':'0',
+          'right':'0',
+          'bottom':'0',
+          'margin':'auto'
+        });
+  
+        jQuery('#resultLoading .bg').css({
+            'background':'#000000',
+            'opacity':'0.7',
+            'width':'100%',
+            'height':'100%',
+            'position':'absolute',
+            'top':'0'
+        });
+  
+        jQuery('#resultLoading>div:first').css({
+          'width': '250px',
+          'height':'75px',
+          'text-align': 'center',
+          'position': 'fixed',
+          'top':'0',
+          'left':'0',
+          'right':'0',
+          'bottom':'0',
+          'margin':'auto',
+          'font-size':'16px',
+          'z-index':'10',
+          'color':'#ffffff'
+        });
+  
+        jQuery('#resultLoading .bg').height('100%');
+        jQuery('#resultLoading').fadeIn(300);
+        jQuery('body').css('cursor', 'wait');
+      }
+  
+      function ajaxindicatorstop() {
+        jQuery('#resultLoading .bg').height('100%');
+           jQuery('#resultLoading').fadeOut(300);
+        jQuery('body').css('cursor', 'default');
+      }
+
+      function formatDate_YYYYMMDD(yyyy, mm, dd) {
+        tmpCurrentDate = new Date(yyyy, mm, dd);
+        var s_yyyy = tmpCurrentDate.getFullYear().toString();
+        var s_mm = (tmpCurrentDate.getMonth()+1).toString();
+        var s_dd  = tmpCurrentDate.getDate().toString(); 
+        return s_yyyy + '/' + (s_mm[1]?s_mm:"0"+s_mm[0]) + '/' + (s_dd[1]?s_dd:"0"+s_dd[0]); // padding
+      }
+
+      function onCurrentMonthSelectorClick() {
+        //set start-end date
+        var now = new Date();
+        $( '#datepicker_start' ).val(formatDate_YYYYMMDD(now.getFullYear(), now.getMonth(), 1));
+        $( '#datepicker_end' ).val(formatDate_YYYYMMDD(now.getFullYear(), now.getMonth(), now.getDate()));
+        onDateSelected();
+      }
+
+      function onPreviousMonthSelectorClick() {
+        //set start-end date
+        var now = new Date();
+        $( '#datepicker_start' ).val(formatDate_YYYYMMDD(now.getFullYear(), now.getMonth()-1, 1));
+        $( '#datepicker_end' ).val(formatDate_YYYYMMDD(now.getFullYear(), now.getMonth(), 0));
+        onDateSelected();
+      }
+
+      function onCurrentYearSelectorClick() {
+        //set start-end date
+        var now = new Date();      
+        $( '#datepicker_start' ).val(formatDate_YYYYMMDD(now.getFullYear(), 0, 1));
+        $( '#datepicker_end' ).val(formatDate_YYYYMMDD(now.getFullYear(), now.getMonth(), now.getDate()));
+        onDateSelected();
+      }
+
+      function onPreviousYearSelectorClick() {
+        //set start-end date
+        var now = new Date();
+        $( '#datepicker_start' ).val(formatDate_YYYYMMDD(now.getFullYear()-1, 0, 1));
+        $( '#datepicker_end' ).val(formatDate_YYYYMMDD(now.getFullYear(), 0, 0));
+        onDateSelected();
+      }
+      
+      function onDateSelected() {
+        sDate = $( '#datepicker_start' ).val();
+        eDate = $( '#datepicker_end' ).val();
+        console.log('Validating dates: ' + sDate + ' - ' + eDate);
+        if (! (( Object.prototype.toString.call(new Date(sDate)) === "[object Date]" ) &&
+              ( Object.prototype.toString.call(new Date(eDate)) === "[object Date]" )) ) return;
+
+        //draw charts
+        drawChartsByDate();
+      }
+
+      function onYearSelected() {
+        var year = parseInt($('#yearpicker').val());
+        console.log('Validating year: ' + year);
+        if (year < 1970 || year > 9999) return;
+
+        //draw charts
+        drawChartsGeneral();
+      }
+
+      $(function() {
+        console.log('Setting defaults');
+        //== Setup date pickers
+        // Register events for date pickers
+        console.log('Registering event listeners');
+        $( '#datepicker_start' ).on('change', onDateSelected); 
+        $( '#datepicker_end' ).on('change', onDateSelected);      
+        $( "#datepicker_start" ).datepicker({dateFormat: 'yy/mm/dd'}); 
+        $( "#datepicker_end" ).datepicker({dateFormat: 'yy/mm/dd'}); 
+        $( '#btn_current_month_selector' ).on('click', onCurrentMonthSelectorClick);
+        $( '#btn_previous_month_selector' ).on('click', onPreviousMonthSelectorClick);
+        $( '#btn_current_year_selector' ).on('click', onCurrentYearSelectorClick);
+        $( '#btn_previous_year_selector' ).on('click', onPreviousYearSelectorClick);
+	$( '#yearpicker' ).on('change', onYearSelected);
+
+        // Set default value for date: current month
+	now = new Date();
+        $( '#datepicker_start' ).val(formatDate_YYYYMMDD(now.getFullYear(), now.getMonth(), 1));
+        $( '#datepicker_end' ).val(formatDate_YYYYMMDD(now.getFullYear(), now.getMonth(), now.getDate()));
+        $( '#yearpicker' ).val((new Date().getFullYear()).toString());
+
+        // Setup "loading" indicators
+	jQuery(document).ajaxStart(function () {
+	  //show ajax indicator
+	  ajaxindicatorstart('loading data.. please wait..');
+	}).ajaxStop(function () {
+	  //hide ajax indicator
+	  ajaxindicatorstop();
+	});
+
+	// Set a callback to run when the Google Visualization API is loaded.
+	google.charts.setOnLoadCallback(drawChartsByDate);
+	google.charts.setOnLoadCallback(drawChartsGeneral);
+
+      });
+    </script>
+  </head>
+
+  <body>
+    <h1> Family Budget Report </h1>
+    <h2>
+      <label for='l_data_range'>report dates: </label>
+      <label id='l_date_range'></label>
+    </h2>
+    <p class='sty_date_selector'>
+      From: <input type="text" id="datepicker_start" class='sty_input_date' size=12 required/> 
+      To: <input type="text" id="datepicker_end" class='sty_input_date' size=12 required/>
+    </p>	
+    <p class='sty_buttons_date'>
+      <button class="sty_buttons_date" id="btn_current_month_selector">Current Month</button>
+      <button class="sty_buttons_date" id="btn_previous_month_selector">Previous Month</button>
+      <button class="sty_buttons_date" id="btn_current_year_selector">Current Year</button>
+      <button class="sty_buttons_date" id="btn_previous_year_selector">Previous Year</button>
+    </p>
+    <table class="page_table">
+      <td> 
+        <div id="table_pl_div"></div>
+      </td>
+      <td> 
+	<div id="pie_expenses_div" class="pie-chart" style="width: 600px; height:400px"></div>
+      </td>
+    </table>
+
+    <h2>
+      <label> general statistics for year: </label>
+      <b><label id='l_year_summary'></label></b>
+    </h2>
+
+    <p class='sty_date_selector'>
+	  <label for='yearpicker'> Year: </label>
+	  <input type='text' id='yearpicker' class='sty_input_date' size=5 required/>
+    </p>
+
+    <p>
+      <div id="table_business_trips_div" class='page_table'></div>
+    </p>
+
+    <table class="page_table">
+      <tr>
+	<div id='dashboard_history_div' />
+	<td>	  	  
+	  <p><div id="history_accounts_div"></div></p>
+	  <p><div id="history_table_div"></div></p>
+	</td>	  
+	<td>
+	  <div id="history_lines_div" style="width:900px; height: 400px"></div>
+	</td>
+      </tr>
+    </table>
+  </body>
+</html>
