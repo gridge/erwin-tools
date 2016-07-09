@@ -39,7 +39,11 @@ EOF
 dateStr=`date -d @${timeNow}`
 date2Str=`date -d @${timeStart}`
 echo "Erwin performance monitor from/to:\n $date2Str\n $dateStr" | \
-mutt -s '[erwin] STATUS' -a ${tmpImage}_temp.png -a ${tmpImage}_volt.png -- ${emailAddress}
+mutt -s '[erwin] STATUS' -a ${tmpImage}_temp.png -a ${tmpImage}_volt.png -- ${emailAddress} < /dev/null
+
+#Update html page
+cp ${tmpImage}_temp.png /home/pi/code/erwin-tools/erwin-mon/www/pi_temperature.png
+cp ${tmpImage}_volt.png /home/pi/code/erwin-tools/erwin-mon/www/pi_voltage.png
 
 #Clean-up
 rm -f ${tmpImage}
