@@ -412,6 +412,9 @@ function removeAccounts(&$listAccounts, $excludeList)
 
 
 //=== Main routine
+//Allow up to 1 minute to load data
+ini_set('max_execution_time', 60);
+
 //Open connection to gnucash DB
 try {
 //  console_log('Opening DB: ' . 'FamilyBudget.gnucash');
@@ -616,7 +619,7 @@ if ($returnLastError != '') {
 } else {
   //all OK
   echo json_encode($formattedArray);
-  console.log('No errors found.');
+  console_log('No errors found.');
 }
 
 ?>
