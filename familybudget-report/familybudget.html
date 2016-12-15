@@ -461,8 +461,21 @@ General TODO list:
         drawChartsGeneral();
       }
 
+      function onReloadDataClick() {
+        $.ajax({
+          url: "dbupdate.php",
+	  complete: function (response) {
+	   alert("Data reloaded");
+	  },
+	  error: function () {
+	   alert("Error reloading data");
+          }});
+      }					 
+
       $(function() {
         console.log('Setting defaults');
+        // Setup reload button
+	$( '#btn_reload_data' ).on('click', onReloadDataClick);
         //== Setup date pickers
         // Register events for date pickers
         console.log('Registering event listeners');
@@ -500,7 +513,8 @@ General TODO list:
   </head>
 
   <body>
-    <h1> Family Budget Report </h1>
+    <h1> Family Budget Report </h1> 
+    <div class="sty_reload"> <button class="sty_reload" type="button" id="btn_reload_data">Reload data</button> </div>
     <h2>
       <label for='l_data_range'>report dates: </label>
       <label id='l_date_range'></label>

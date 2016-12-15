@@ -9,6 +9,8 @@ tr {
     font-size: 15pt;
 }
 
+
+
 h1 {
     text-align: center;
     font-size: 30pt;
@@ -90,4 +92,8 @@ button:active {
 
 .sty_labels {
     font-size: 15pt;
+}
+
+.sty_reload {
+    text-align: center;
 }
