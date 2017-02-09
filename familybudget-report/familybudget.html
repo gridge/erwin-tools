@@ -19,6 +19,9 @@ General TODO list:
     // Load the Visualization API and the piechart package.
     google.charts.load('current', {'packages':['corechart', 'table', 'controls']});
 
+    // global variable to store data (used for exporting)
+    var view_history;
+
     //note: callback for loading will be set later, when other fields are ready as well    
 
     //Utility function to load DataTable from php response
@@ -86,6 +89,7 @@ General TODO list:
       $( '#l_date_range' ).text(in_startDate + ' -- ' + in_endDate);
 
       //Income/Expenses for normal accounts
+      console.log('Loading data for table of income/expenses');
       $.ajax({
           url: "familybudget.php",
           dataType: "json",
@@ -122,6 +126,7 @@ General TODO list:
       }); //end ajax call
 
       //Chart of expenses
+      console.log('Loading data for chart of expenses');
       $.ajax({
           url: "familybudget.php",
           dataType: "json",
@@ -207,10 +212,14 @@ General TODO list:
       dashboard_history.bind([list_accounts], [table_history]);
       google.visualization.events.addListener(dashboard_history, 'ready', drawLinesHistory);
 
+      //update button for export
+      google.visualization.events.addListener(dashboard_history, 'ready', exportHistory);
+
       //variable for storing DataView to be visualized
-      var view_history;
+      //var view_history;
 
       //now need to populate the data table
+      console.log('Loading data for general dashboard');
       $.ajax({
           url: "familybudget.php",
           dataType: "json",
@@ -242,6 +251,7 @@ General TODO list:
       }); //end ajax call
 
       //load Business trips table
+      console.log('Loading data for report BusinessTrips');
       $.ajax({
           url: "familybudget.php",
           dataType: "json",
@@ -275,30 +285,42 @@ General TODO list:
           }
       }); //end ajax call
 
-      function drawLinesHistory() {
-        //re-organize view_history DataTable to be used by line chart to be date and balances only:
-        // Date, Account1, Account2, ...
-        // and draw the lines history chart
-        console.log('Draw History Lines chart');
-  
+      //Get data table for lines chart and download
+      function getHistoryDT(accountList, invertRowsCols=false) {
         //get the list of selected accounts
-        var selectedAccounts = list_accounts.getState().selectedValues;
         var history_lines_dataTable = new google.visualization.DataTable();
-        history_lines_dataTable.addColumn('string', 'Date');
-        for (i = 0; i < selectedAccounts.length; i++) {
-          history_lines_dataTable.addColumn('number', selectedAccounts[i].toString());
-        }
-
-        //fill DataView with default values and list of unique dates we need
-        listDates = view_history.getDistinctValues(2);
-	for (row = 0; row < listDates.length; row++) {
-	  var rowToAdd = [];
-	  rowToAdd.push(listDates[row]);
-	  for (i=0; i<selectedAccounts.length;i++) {
-            rowToAdd.push(0.0); //default: 0.0
-          }
-          history_lines_dataTable.addRow(rowToAdd);
-        }
+        var listDates = view_history.getDistinctValues(2);
+	if (!invertRowsCols) {
+	    //Rows: dates; Cols: accounts
+            history_lines_dataTable.addColumn('string', 'Date');
+            for (i = 0; i < accountList.length; i++) {
+		history_lines_dataTable.addColumn('number', accountList[i]);
+            }
+            //fill DataView with default values and list of unique dates we need
+	    for (row = 0; row < listDates.length; row++) {
+		var rowToAdd = [];
+		rowToAdd.push(listDates[row]);
+		for (i=0; i< accountList.length; i++) {
+		    rowToAdd.push(0.0); //default: 0.0
+		}
+		history_lines_dataTable.addRow(rowToAdd);
+            }
+	} else {
+	    //Rows: accounts; Cols: dates
+	    history_lines_dataTable.addColumn('string', 'Account');
+	    for (i = 0; i < listDates.length; i++) {
+		history_lines_dataTable.addColumn('number', listDates[i]);
+	    }
+            //fill DataView with default values and list of unique dates we need
+	    for (row = 0; row < accountList.length; row++) {
+		var rowToAdd = [];
+		rowToAdd.push(accountList[row]);
+		for (i=0; i< listDates.length; i++) {
+		    rowToAdd.push(0.0); //default: 0.0
+		}
+		history_lines_dataTable.addRow(rowToAdd);
+            }
+	}
         
         //now loop over DataView and fill DataTable
         var nRows = view_history.getNumberOfRows();
@@ -309,32 +331,110 @@ General TODO list:
           //find the index row in the DataTable
           var indexRowForDate=-1;
           for (i = 0; i < history_lines_dataTable.getNumberOfRows(); i++) {
-            if (history_lines_dataTable.getValue(i, 0) == strDate) {
-	      indexRowForDate=i;
-	      break;
-            }
+	    if (!invertRowsCols) {
+		if (history_lines_dataTable.getValue(i, 0) == strDate) {
+		    indexRowForDate=i;
+		    break;
+		}
+	    } else {
+		if (history_lines_dataTable.getValue(i, 0) == strAccount) {
+		    indexRowForDate=i;
+		    break;
+		}		
+	    }
           }
 	  //find the index column in the DataTable
           var indexColForAccount=-1;
           for (i=0; i < history_lines_dataTable.getNumberOfColumns(); i++) {
-	    if (history_lines_dataTable.getColumnLabel(i) == strAccount) {
-              indexColForAccount=i;
-              break;
-            }
+	      if (!invertRowsCols) {
+		  if (history_lines_dataTable.getColumnLabel(i) == strAccount) {
+		      indexColForAccount=i;
+		      break;
+		  }
+	      } else {
+		  if (history_lines_dataTable.getColumnLabel(i) == strDate) {
+		      indexColForAccount=i;
+		      break;
+		  }
+	      }
           }
           //fill the values
           if (indexRowForDate >= 0 && indexColForAccount >= 0) {
-            history_lines_dataTable.setValue(indexRowForDate, indexColForAccount, balance);
+	      history_lines_dataTable.setValue(indexRowForDate, indexColForAccount, balance);
           }
         } //loop over input DataView
 
-        //finally draw lines chart
+        return history_lines_dataTable;
+      }
+
+      //Draw line chart
+      function drawLinesHistory() {
+        //re-organize view_history DataTable to be used by line chart to be date and balances only:
+        // Date, Account1, Account2, ...
+        // and draw the lines history chart
+        console.log('Draw History Lines chart');
+
+        var selectedAccounts = list_accounts.getState().selectedValues;
+        var selectedAccountsStr = [];
+        for (i = 0; i < selectedAccounts.length; i++) {
+          selectedAccountsStr.push(selectedAccounts[i].toString());
+        }
+	var history_lines_dataTable = getHistoryDT(selectedAccountsStr);
+
+        //draw lines chart
         lines_history.setDataTable(history_lines_dataTable);
         lines_history.draw();
 
         console.log('End drawing History Lines chart');
                    
       } //drawLinesHistory 
+
+      function exportHistory() {
+	$('#btn_export_history').click(function() {
+          console.log('Exporting history data table');
+          //first re-organize the list into a table (similar as for lines chart)
+          var allAccounts = [];
+	  console.log(list_accounts);
+	  for (i = 0; i < view_history.getNumberOfRows(); i++) {
+	    var nameAccount = view_history.getValue(i, 0).toString(); 
+            if (allAccounts.indexOf(nameAccount) == -1) { 
+              allAccounts.push(nameAccount);
+            }
+          }
+          console.log(allAccounts);
+	  var reverseColRows=true;
+          var history_nicetable = getHistoryDT(allAccounts, reverseColRows);
+          //Format as CSV, adding column headers too
+          var csvFormattedDataTable = google.visualization.dataTableToCsv(history_nicetable);
+	  var csvHeader = "";
+	  if (reverseColRows) {
+	      csvHeader = "Accounts, ";
+	      var listDates = view_history.getDistinctValues(2);
+              for (i = 0; i < listDates.length; i++) {
+		  csvHeader = csvHeader + listDates[i];
+		  if ( i < allAccounts.length - 1 ) {
+		      csvHeader = csvHeader + ', ';
+		  }		  
+	      } 
+	  } else {
+	      csvHeader="Date, ";
+              for (i = 0; i < allAccounts.length; i++) {
+		  csvHeader = csvHeader + allAccounts[i];
+		  if ( i < allAccounts.length - 1 ) {
+		      csvHeader = csvHeader + ', ';
+		  }
+	      }
+          }
+          csvHeader = csvHeader + '\n';
+          csvFormattedDataTable = csvHeader + csvFormattedDataTable;
+          //create link for download
+	  var encodedUri = 'data:application/csv;charset=utf-8,' + encodeURIComponent(csvFormattedDataTable);
+          this.href = encodedUri;
+          this.download = 'history-data-' + $('#yearpicker').val().toString() + '.csv';
+          this.target = '_blank';
+	  console.log('Export button updated with data');
+        });
+      } //export history
     
     } // drawChartsGeneral
 
@@ -561,6 +661,7 @@ General TODO list:
 	</td>	  
 	<td>
 	  <div id="history_lines_div" style="width:900px; height: 400px"></div>
+	  <div> <a class="button" id="btn_export_history" href="#">Export as CSV</a> </div>
 	</td>
       </tr>
     </table>
