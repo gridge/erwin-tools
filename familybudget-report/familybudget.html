@@ -577,10 +577,18 @@ General TODO list:
         // Setup reload button
 	$( '#btn_reload_data' ).on('click', onReloadDataClick);
         //== Setup date pickers
+        // Set default value for date: current month
+	now = new Date();
+        $( '#datepicker_start' ).val(formatDate_YYYYMMDD(now.getFullYear(), now.getMonth(), 1));
+        $( '#datepicker_end' ).val(formatDate_YYYYMMDD(now.getFullYear(), now.getMonth(), now.getDate()));
+        $( '#yearpicker' ).val((new Date().getFullYear()).toString());
+
         // Register events for date pickers
         console.log('Registering event listeners');
-        $( '#datepicker_start' ).on('change', onDateSelected); 
-        $( '#datepicker_end' ).on('change', onDateSelected);      
+        // --disable auto-reload and use manual "update" button
+        //$( '#datepicker_start' ).on('change', onDateSelected); 
+        //$( '#datepicker_end' ).on('change', onDateSelected);   
+	$( '#btn_update_date_range' ).on('click', onDateSelected);
         $( "#datepicker_start" ).datepicker({dateFormat: 'yy/mm/dd'}); 
         $( "#datepicker_end" ).datepicker({dateFormat: 'yy/mm/dd'}); 
         $( '#btn_current_month_selector' ).on('click', onCurrentMonthSelectorClick);
@@ -588,12 +596,6 @@ General TODO list:
         $( '#btn_current_year_selector' ).on('click', onCurrentYearSelectorClick);
         $( '#btn_previous_year_selector' ).on('click', onPreviousYearSelectorClick);
 	$( '#yearpicker' ).on('change', onYearSelected);
-
-        // Set default value for date: current month
-	now = new Date();
-        $( '#datepicker_start' ).val(formatDate_YYYYMMDD(now.getFullYear(), now.getMonth(), 1));
-        $( '#datepicker_end' ).val(formatDate_YYYYMMDD(now.getFullYear(), now.getMonth(), now.getDate()));
-        $( '#yearpicker' ).val((new Date().getFullYear()).toString());
 
         // Setup "loading" indicators
 	jQuery(document).ajaxStart(function () {
@@ -604,9 +606,10 @@ General TODO list:
 	  ajaxindicatorstop();
 	});
 
-	// Set a callback to run when the Google Visualization API is loaded.
-	google.charts.setOnLoadCallback(drawChartsByDate);
-	google.charts.setOnLoadCallback(drawChartsGeneral);
+	// Set a callback to run when the Google Visualization API is loaded.	
+        // -- disabled, let the user load what he/she needs
+	//google.charts.setOnLoadCallback(drawChartsByDate);
+	//google.charts.setOnLoadCallback(drawChartsGeneral);
 
       });
     </script>
@@ -622,6 +625,7 @@ General TODO list:
     <p class='sty_date_selector'>
       From: <input type="text" id="datepicker_start" class='sty_input_date' size=12 required/> 
       To: <input type="text" id="datepicker_end" class='sty_input_date' size=12 required/>
+      <button class="sty_buttons_date" id="btn_update_date_range">Update</button>
     </p>	
     <p class='sty_buttons_date'>
       <button class="sty_buttons_date" id="btn_current_month_selector">Current Month</button>
