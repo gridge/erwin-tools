@@ -595,7 +595,8 @@ General TODO list:
         $( '#btn_previous_month_selector' ).on('click', onPreviousMonthSelectorClick);
         $( '#btn_current_year_selector' ).on('click', onCurrentYearSelectorClick);
         $( '#btn_previous_year_selector' ).on('click', onPreviousYearSelectorClick);
-	$( '#yearpicker' ).on('change', onYearSelected);
+	//$( '#yearpicker' ).on('change', onYearSelected);
+	$( '#btn_update_year' ).on('click', onYearSelected);
 
         // Setup "loading" indicators
 	jQuery(document).ajaxStart(function () {
@@ -650,6 +651,7 @@ General TODO list:
     <p class='sty_date_selector'>
 	  <label for='yearpicker'> Year: </label>
 	  <input type='text' id='yearpicker' class='sty_input_date' size=5 required/>
+	  <button class="sty_buttons_date" id="btn_update_year">Update</button>
     </p>
 
     <p>
