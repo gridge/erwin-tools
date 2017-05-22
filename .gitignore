@@ -1,2 +1,5 @@
 # Ignore production directory
 erwin-mon/prod
+
+# backup
+*~
