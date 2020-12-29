@@ -7,10 +7,12 @@ https://www.raspberrypi.org/software/
 ```bash
 rpi-imager
 ```
+Touch an empty `ssh` file in the `boot` partition.
 
 ### Minor touches
 ```bash
-echo "alias ll='ls -ltrh" >> ~/.bash_aliases
+echo "alias ll='ls -ltrh'" >> ~/.bash_aliases
+echo "alias emacs='emacs -nw'" >> ~/.bash_aliases
 ```
 
 Setup erwin tools (see erwin-mon/README)
@@ -22,10 +24,8 @@ Enable in `root` crontab:
 ```
 More info: https://www.tecmint.com/install-rootkit-hunter-scan-for-rootkits-backdoors-in-linux/
 
-Install gpg
+Configure gpg
 ```bash
-apt install gpg gpg-conf gpg-agent pinentry-curses
-
 cat <<EOT >> ~/.gnupg/gpg-agent.conf
 pinentry-program /usr/bin/pinentry-curses
 no-grab
@@ -65,12 +65,6 @@ fi
 GPG_TTY=$(tty)
 export GPG_TTY
 EOT
-```
-
-Enable ssh server
-```bash
-apt install openssh-server
-service start ssh
 ```
 
 Enable unattended upgrades
