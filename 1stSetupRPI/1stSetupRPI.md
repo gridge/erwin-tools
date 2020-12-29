@@ -74,6 +74,14 @@ sudo apt install unattended-upgrades
 config on /etc/apt/apt.conf.d/50unattended-upgrades
 More info: https://pimylifeup.com/unattended-upgrades-debian-ubuntu/
 
+#### Mount external drive
+Get UUID with `sudo lsblk -o UUID,NAME,FSTYPE,SIZE,MOUNTPOINT,LABEL,MODEL`
+then add to the `/etc/fstab` a line with:
+```
+UUID=5C24-1453 /mnt/mydisk ext4 defaults,auto,users,rw,nofail 0 0
+```
+changing the appropriate UUID (see https://www.raspberrypi.org/documentation/configuration/external-storage.md)
+
 #### Cronjob backup/synchs
 Synch crypted secrets (should move to rclone)
 ```
