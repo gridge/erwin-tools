@@ -15,7 +15,7 @@ echo "alias ll='ls -ltrh'" >> ~/.bash_aliases
 echo "alias emacs='emacs -nw'" >> ~/.bash_aliases
 ```
 
-Setup erwin tools (see erwin-mon/README)
+Setup erwin tools (see erwin-mon/erwin-mon.md)
 
 Install rkhunter. Download/info: http://rkhunter.sourceforge.net/
 Enable in `root` crontab:
